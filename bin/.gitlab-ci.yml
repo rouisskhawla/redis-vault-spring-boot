@@ -1,0 +1,87 @@
+stages:
+  - sonarqube-check
+  - maven-test
+  - build-package
+  - build-image
+  - deploy-pre-prod
+  - deploy-prod
+
+sonarqube-check:
+  image: maven:3-openjdk-17
+  stage: sonarqube-check
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"
+    GIT_DEPTH: "0"
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script: 
+    - mvn verify sonar:sonar -Dmaven.test.failure.ignore=true
+  allow_failure: true
+  only:
+    - main
+
+maven-test:
+  image: maven:3-openjdk-17
+  stage: maven-test
+  allow_failure: true
+  script:
+    - "mvn clean install -DskipTests"
+    - "mvn test -Doracle.jdbc.timezoneAsRegion=false"
+
+build-package:
+  image: maven:3-openjdk-17
+  stage: build-package
+  script:
+    - "mvn clean package -Dspring.profiles.active=prod -Dmaven.test.skip=true"
+  artifacts:
+    paths:
+      - ./target/ws-wega-api-redis-0.0.1-SNAPSHOT.jar
+
+build-image:
+  image: docker:18.09
+  stage: build-image
+  services:
+    - docker:18.09-dind
+  before_script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script: 
+    - echo "$VAULT_CERT" > vault-cert.pem
+    - docker build --build-arg JAR_FILE=target/*.jar --build-arg VAULT_CERT_FILE=vault-cert.pem -t $CI_REGISTRY_IMAGE .
+    - docker push $CI_REGISTRY_IMAGE
+  when: manual
+
+deploy-pre-prod:
+  image: ubuntu:22.04
+  stage: deploy-pre-prod
+  before_script:
+    - 'which ssh-agent || ( apt-get update && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - cat "$SSH_PRIVATE_KEY_PRE_PROD" | tr -d '\r' | ssh-add - > /dev/null
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP  ls
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - ssh -o StrictHostKeyChecking=no docker-compose.yml $SERVER_USER@$SERVER_IP mkdir -p ~/redis-ms-ssl
+    - scp -o StrictHostKeyChecking=no docker-compose.yml $SERVER_USER@$SERVER_IP:~/redis-ms-ssl
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP docker-compose -f redis-ms-ssl/docker-compose.yml down
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP docker pull $CI_REGISTRY_IMAGE
+    - ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP docker-compose -f redis-ms-ssl/docker-compose.yml up -d
+  when: manual
+
+deploy-prod:
+  image: ubuntu:22.04
+  stage: deploy-prod
+  before_script:
+    - 'which ssh-agent || ( apt-get update && apt-get install openssh-client -y )'
+    - eval $(ssh-agent -s)
+    - cat "$SSH_PRIVATE_KEY_PROD" | tr -d '\r' | ssh-add - > /dev/null
+    - ssh -o StrictHostKeyChecking=no $PROD_SERVER_USER@$PROD_SERVER_IP ls
+    - ssh -o StrictHostKeyChecking=no $PROD_SERVER_USER@$PROD_SERVER_IP docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - ssh -o StrictHostKeyChecking=no $PROD_SERVER_USER@$PROD_SERVER_IP mkdir -p redis-ms-ssl
+    - scp -o StrictHostKeyChecking=no docker-compose.yml $PROD_SERVER_USER@$PROD_SERVER_IP:~/redis-ms-ssl
+    - ssh -o StrictHostKeyChecking=no $PROD_SERVER_USER@$PROD_SERVER_IP docker-compose -f redis-ms-ssl/docker-compose.yml down
+    - ssh -o StrictHostKeyChecking=no $PROD_SERVER_USER@$PROD_SERVER_IP docker pull $CI_REGISTRY_IMAGE
+    - ssh -o StrictHostKeyChecking=no $PROD_SERVER_USER@$PROD_SERVER_IP docker-compose -f redis-ms-ssl/docker-compose.yml up -d
+  when: manual
