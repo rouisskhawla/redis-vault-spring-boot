@@ -47,6 +47,7 @@ public class RedisConfig {
 
 	@Bean
 	public LettuceConnectionFactory redisConnectionFactory() {
+
 		try {
 			RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
 			config.setHostName(host);
@@ -66,17 +67,17 @@ public class RedisConfig {
 
 			return new LettuceConnectionFactory(config, clientConfig);
 
-		} catch (IOException e) {
-			logger.error("Failed to load Redis CA certificate: {}", e.getMessage(), e);
-			return null;
-		} catch (RedisConnectionFailureException e) {
-			logger.error("Failed to connect to Redis: {}", e.getMessage(), e);
-			return null;
+		} catch (IOException ex) {
+			logger.error("Failed to load Redis CA certificate", ex);
+			throw new IllegalStateException("Invalid Redis CA certificate", ex);
+
+		} catch (RedisConnectionFailureException ex) {
+			logger.error("Failed to connect to Redis", ex);
+			throw new IllegalStateException("Redis connection failed", ex);
 		}
 	}
 
 	public Long getDataModelTtl() {
 		return dataModelTtl;
 	}
-
 }
