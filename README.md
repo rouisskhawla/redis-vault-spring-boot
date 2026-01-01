@@ -1,6 +1,6 @@
 # Spring Boot with Redis & HashiCorp Vault Integration
 
-This guide explains how to securely connect a Spring Boot application to Redis using credentials stored in HashiCorp Vault. Vault manages secrets, including TLS certificates and Redis credentials, while Spring Boot retrieves them at runtime using AppRole authentication.
+This project is an integration for Spring boot application wwith Redis and HashiCorp Vault. Vault manages secrets, including TLS certificates and Redis credentials, while Spring Boot retrieves them at runtime using AppRole authentication to connect to Redis server.
 
 Both Vault and Redis are installed on separate VMs with TLS enabled. Certificates are imported into local Java KeyStore to allow the Spring Boot app to run locally.
 
@@ -15,6 +15,12 @@ Both Vault and Redis are installed on separate VMs with TLS enabled. Certificate
 
 ---
 
+## Architecture
+
+![Project Architecture](docs/screenshots/architecture.png)
+
+---
+
 ## Vault & Redis Certificates
 
 1. Imported Vault and Redis TLS certificates into local Java KeyStore:
@@ -23,12 +29,12 @@ Both Vault and Redis are installed on separate VMs with TLS enabled. Certificate
 keytool -importcert \
   -alias vault \
   -file path\to\vault-ca.pem \
-  -keystore "C:\\Program Files\\Java\\jdk-17\\lib\\security\\cacerts"
+  -keystore "C:\Program Files\Java\jdk-17\lib\security\cacerts"
 
 keytool -importcert \
   -alias redis \
   -file path\to\redis-ca.pem \
-  -keystore "C:\\Program Files\\Java\\jdk-17\\lib\\security\\cacerts"
+  -keystore "C:\Program Files\Java\jdk-17\lib\security\cacerts"
 ```
 
 2. Prepare Redis certificate as a single-line JSON-ready string for Vault:
