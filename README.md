@@ -23,12 +23,12 @@ Both Vault and Redis are installed on separate VMs with TLS enabled. Certificate
 keytool -importcert \
   -alias vault \
   -file path\to\vault-ca.pem \
-  -keystore "C:\Program Files\Java\jdk-17\lib\security\cacerts"
+  -keystore "C:\\Program Files\\Java\\jdk-17\\lib\\security\\cacerts"
 
 keytool -importcert \
   -alias redis \
   -file path\to\redis-ca.pem \
-  -keystore "C:\Program Files\Java\jdk-17\lib\security\cacerts"
+  -keystore "C:\\Program Files\\Java\\jdk-17\\lib\\security\\cacerts"
 ```
 
 2. Prepare Redis certificate as a single-line JSON-ready string for Vault:
@@ -49,6 +49,10 @@ awk 'BEGIN {printf "\""} {gsub(/\r?\n/, "\\n"); printf "%s\\n", $0} END {print "
   "redis.port": 6379
 }
 ```
+
+Reference:
+
+* [Vault Redis Secret Configuration](docs/screenshots/vault/vault-secret.png)
 
 ---
 
@@ -149,23 +153,6 @@ ExecStart=/opt/vault/auto-unseal.sh
 WantedBy=vault.service
 ```
 
-**Enable service:**
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable vault-auto-unseal
-```
-
-**Verify:**
-
-```bash
-systemctl status vault
-systemctl status vault-auto-unseal
-vault status
-```
-
-Expected output: `Sealed: false`
-
 ---
 
 ## Vault AppRole Authentication
@@ -175,6 +162,11 @@ Expected output: `Sealed: false`
 ```bash
 vault auth enable approle
 ```
+
+References:
+
+* [Vault UI Login](docs/screenshots/vault/vault-ui-login.png)
+* [Vault AppRole Configuration](docs/screenshots/vault/vault-approle.png)
 
 ### 2. Create Policy
 
@@ -194,22 +186,16 @@ vault write auth/approle/role/my-role token_policies="redis-policy"
 
 ### 4. Retrieve Role ID & Secret ID
 
-**Role ID:**
-
 ```bash
 vault read auth/approle/role/my-role/role-id
-```
-
-**Secret ID:**
-
-```bash
 vault write -f auth/approle/role/my-role/secret-id
 ```
 
-### 5. Spring Boot Configuration
+---
+
+## Spring Boot Configuration
 
 ```properties
-
 spring.cloud.vault.uri=https://192.168.1.8:8200
 spring.cloud.vault.authentication=approle
 spring.cloud.vault.app-role.role-id=<ROLE_ID>
@@ -222,7 +208,25 @@ spring.cloud.vault.kv.default-context=redis/server
 spring.config.import=vault://
 ```
 
-Spring Boot will fetch Redis credentials and TLS certificate from Vault at startup.
+Spring Boot fetches Redis credentials and TLS material from Vault at startup.
+
+---
+
+## Redis Connectivity
+
+References:
+
+* [Redis Connection Configuration](docs/screenshots/redis/redis-connection-config.png)
+* [Redis TLS Connection](docs/screenshots/redis/redis-cli-connection.png)
+
+---
+
+## API Validation
+
+References:
+
+* [Bruno – Save Data Model](docs/screenshots/bruno/bruno-save-datamodel.png)
+* [Bruno – Get Data Model](docs/screenshots/bruno/bruno-get-datamodel.png)
 
 ---
 
