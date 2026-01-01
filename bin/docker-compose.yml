@@ -1,8 +1,0 @@
-version: '3'
-services:
-    redis-ms-ssl: 
-      image: gitlab2.worldsoftgroup.com:5050/redis/ws-wega-api-redis
-      container_name: redis-ms-ssl
-      ports:
-        - "8557:8557"
-      restart: always
